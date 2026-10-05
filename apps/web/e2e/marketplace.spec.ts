@@ -1,12 +1,17 @@
 import { expect, test } from '@playwright/test';
 
 async function signIn(page: import('@playwright/test').Page, email: string, redirect = '/', mode: 'login' | 'register' = 'register') {
-  await page.goto(`/login?redirect=${encodeURIComponent(redirect)}&mode=${mode === 'register' ? 'signup' : 'login'}`);
-  await page.getByLabel('Email or mobile number').fill(email);
+  await page.goto(`/login?redirect=${encodeURIComponent(redirect)}&mode=signup`);
   if (mode === 'register') {
     await expect(page.getByRole('button', { name: 'Register', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.getByLabel('Your name').fill('Demo Learner');
+  } else {
+    await expect(page.getByRole('button', { name: 'Register', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page).not.toHaveURL(/mode=signup/);
   }
+  await page.getByLabel('Email or mobile number').fill(email);
   await page.getByRole('button', { name: mode === 'register' ? 'Continue registration' : 'Continue with email or phone' }).click();
   const code = await page.locator('.dev-code strong').textContent();
   expect(code).toMatch(/^\d{6}$/);
