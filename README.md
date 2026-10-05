@@ -4,21 +4,29 @@ Hassle-free upskilling for Indian graduates, working professionals and job seeke
 
 ## Quick start (5 commands)
 
-Run these in PowerShell from the repository root:
+Run the first three commands from the repository root. Keep the PostgreSQL
+process from command 3 running in its terminal; run commands 4 and 5 from
+another terminal:
 
 ```powershell
 Copy-Item .env.example .env
 npm install
-docker compose up -d
+npm run db:up -w @upskillin/api
 npm run db:init
 npm run dev
 ```
+
+The project-local PostgreSQL server uses `apps/api/data/postgres/` and does not
+require Docker or a system-wide PostgreSQL installation. If you already have a
+PostgreSQL server on port 5432, configure `DATABASE_URL` for it instead of
+running `db:up`. Docker Compose remains available as an alternative database
+setup.
 
 Open [http://localhost:3000](http://localhost:3000). The API is at
 [http://localhost:4000/api](http://localhost:4000/api); OpenAPI docs are at
 [http://localhost:4000/api/docs](http://localhost:4000/api/docs).
 
-`db:init` generates the Prisma client, creates the initial database migration
+`db:init` generates the Prisma client, applies the initial database migration
 and seeds 48 courses. If a `.env` already exists, keep it and verify the
 PostgreSQL URL and JWT/OTP secrets before starting. The local payment provider
 is server-simulated and is never enabled in `NODE_ENV=production`.
@@ -57,7 +65,8 @@ npm run test:e2e -w @upskillin/web
 
 The Playwright scenarios cover signup → browse → buy (local payment), URL-synced
 filter combinations, and admin course creation. Before running them locally,
-start PostgreSQL, run `npm run db:init`, and install Chromium once with
+start PostgreSQL with `npm run db:up -w @upskillin/api`, run
+`npm run db:init`, and install Chromium once with
 `npx playwright install chromium`.
 
 ## Project map
@@ -74,6 +83,6 @@ start PostgreSQL, run `npm run db:init`, and install Chromium once with
 - [.env.example](./.env.example): local configuration template; never commit
   populated `.env` files.
 
-Docker Compose starts PostgreSQL and Redis. Redis is reserved for the planned
-distributed OTP/session limits and cache; current demo login throttling is
-process-local.
+Docker Compose can also start PostgreSQL and Redis. Redis is reserved for the
+planned distributed OTP/session limits and cache; current demo login
+throttling is process-local.
