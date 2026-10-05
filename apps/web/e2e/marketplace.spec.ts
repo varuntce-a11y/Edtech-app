@@ -16,7 +16,12 @@ async function signIn(page: import('@playwright/test').Page, email: string, redi
 
 test('signup, browse a course, and complete a local test purchase', async ({ page }) => {
   await signIn(page, `learner-${Date.now()}@upskillin.demo`);
-  await expect(page.locator('.account-link')).toHaveText('Hi, Demo Learner');
+  await expect(page.locator('.account-trigger-name')).toHaveText('Demo Learner');
+  await page.getByRole('button', { name: 'Account details for Demo Learner' }).click();
+  await expect(page.getByRole('region', { name: 'Account details' })).toContainText('Demo Learner');
+  await expect(page.getByText(/learner-.*@upskillin\.demo/)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Account details' }).getByText('Data Analyst', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Find your next skill.' })).toBeVisible();
   await page.getByLabel('Search courses').fill('Excel Mastery for Business Analysts');
   await page.getByRole('button', { name: /Add Excel Mastery for Business Analysts to cart/ }).click();
@@ -33,6 +38,10 @@ test('signup, browse a course, and complete a local test purchase', async ({ pag
   await page.evaluate(() => localStorage.setItem('upskillin-access-token', 'expired-access-token'));
   await page.getByRole('link', { name: 'Go to My Courses' }).click();
   await expect(page.getByRole('heading', { name: 'Excel Mastery for Business Analysts' })).toBeVisible();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Account details for Demo Learner' }).click();
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible();
 });
 
 test('combines catalog filters and keeps them in the URL', async ({ page }) => {

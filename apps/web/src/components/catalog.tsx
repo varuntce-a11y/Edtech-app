@@ -1,14 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowDownUp, ArrowRight, BookOpen, Check, ChevronDown, Clock3, GraduationCap, Menu, Search, SlidersHorizontal, Sparkles, Star, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDownUp, ArrowRight, BookOpen, Check, ChevronDown, Clock3, GraduationCap, LogOut, Menu, Search, SlidersHorizontal, Sparkles, Star, UserRound, X } from 'lucide-react';
 import { API_URL, CatalogResponse, Course, formatRupees, languageNames, modeNames } from '@/lib/api';
 
 const topics = ['Data & Analytics', 'Artificial Intelligence', 'Finance & GST', 'Communication', 'Interview Prep', 'Software Development', 'Career & Business', 'Design & Creativity'];
 const languages = ['en', 'hi', 'ta', 'te', 'kn', 'mr', 'bn'];
 const blankFilters = { q: '', topic: '', language: '', mode: '', assessment: '', instructor: '', minPrice: '', maxPrice: '', sort: 'relevance' };
 type Filters = typeof blankFilters;
+type AccountProfile = {
+  email?: string | null;
+  phone?: string | null;
+  role?: string;
+  profile?: {
+    educationLevel?: string | null;
+    experienceYears?: number | null;
+    targetRole?: string | null;
+    preferredLanguage?: string | null;
+    city?: string | null;
+  } | null;
+};
 
 function getInitialFilters(): Filters {
   if (typeof window === 'undefined') return blankFilters;
@@ -51,6 +63,10 @@ export function Catalog() {
   const [toast, setToast] = useState('');
   const [mobileMenu, setMobileMenu] = useState(false);
   const [userName, setUserName] = useState('');
+  const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -91,8 +107,11 @@ export function Catalog() {
     const storedUser = localStorage.getItem('upskillin-user');
     if (localStorage.getItem('upskillin-access-token') && storedUser) {
       try {
-        const user = JSON.parse(storedUser) as { name?: unknown };
-        if (typeof user.name === 'string') setUserName(user.name.trim());
+        const user = JSON.parse(storedUser) as { name?: unknown } & AccountProfile;
+        if (typeof user.name === 'string') {
+          setUserName(user.name.trim());
+          setAccountProfile(user);
+        }
       } catch (cause) {
         console.error('Could not read the signed-in user from browser storage.', cause);
       }
@@ -105,6 +124,52 @@ export function Catalog() {
       setCartCount(0);
     }
   }, []);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (event.target instanceof Node && !accountMenuRef.current?.contains(event.target)) {
+        setAccountMenuOpen(false);
+      }
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setAccountMenuOpen(false);
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [accountMenuOpen]);
+
+  async function signOut() {
+    setSigningOut(true);
+    const refreshToken = localStorage.getItem('upskillin-refresh-token');
+    let revokeError: unknown;
+    if (refreshToken) {
+      try {
+        const response = await fetch(`${API_URL}/auth/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (!response.ok) throw new Error(`Session revocation failed (${response.status})`);
+      } catch (cause) {
+        revokeError = cause;
+        console.error('Could not revoke the server session during sign out.', cause);
+      }
+    }
+    localStorage.removeItem('upskillin-access-token');
+    localStorage.removeItem('upskillin-refresh-token');
+    localStorage.removeItem('upskillin-user');
+    setUserName('');
+    setAccountProfile(null);
+    setAccountMenuOpen(false);
+    setSigningOut(false);
+    setToast(revokeError ? 'Signed out on this device, but the server session could not be revoked.' : 'You have been signed out.');
+    window.setTimeout(() => setToast(''), 4000);
+  }
 
   function updateFilter(key: keyof Filters, value: string) {
     setFilters((previous) => ({ ...previous, [key]: value }));
@@ -145,7 +210,24 @@ export function Catalog() {
           <Link href="/my-courses" className="header-cart"><BookOpen size={18} /><span>My learning</span></Link>
           <Link href="/cart" className="cart-button" aria-label={`Cart, ${cartCount} items`}><span>Cart</span><span className="cart-count">{cartCount}</span></Link>
           {userName
-            ? <Link href="/my-courses" className="account-link" aria-label={`Signed in as ${userName}`}>Hi, {userName}</Link>
+            ? <div className="account-menu-root" ref={accountMenuRef}>
+              <button className="account-trigger" type="button" aria-label={`Account details for ${userName}`} aria-expanded={accountMenuOpen} aria-controls="account-details-menu" onClick={() => setAccountMenuOpen((open) => !open)}>
+                <UserRound size={17} /><span className="account-trigger-name">{userName}</span><ChevronDown size={13} />
+              </button>
+              {accountMenuOpen && <section className="account-menu" id="account-details-menu" aria-label="Account details">
+                <div className="account-menu-heading"><UserRound size={18} /><div><strong>{userName}</strong><span>{accountProfile?.role?.toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase()) ?? 'Learner'} account</span></div></div>
+                <dl className="account-profile">
+                  {(accountProfile?.email || accountProfile?.phone) && <div><dt>Contact</dt><dd>{accountProfile.email || accountProfile.phone}</dd></div>}
+                  {accountProfile?.profile?.educationLevel && <div><dt>Education</dt><dd>{accountProfile.profile.educationLevel}</dd></div>}
+                  {accountProfile?.profile?.experienceYears != null && <div><dt>Experience</dt><dd>{accountProfile.profile.experienceYears} {accountProfile.profile.experienceYears === 1 ? 'year' : 'years'}</dd></div>}
+                  {accountProfile?.profile?.targetRole && <div><dt>Career goal</dt><dd>{accountProfile.profile.targetRole}</dd></div>}
+                  {accountProfile?.profile?.preferredLanguage && <div><dt>Language</dt><dd>{languageNames[accountProfile.profile.preferredLanguage] ?? accountProfile.profile.preferredLanguage}</dd></div>}
+                  {accountProfile?.profile?.city && <div><dt>City</dt><dd>{accountProfile.profile.city}</dd></div>}
+                </dl>
+                <Link className="account-learning-link" href="/my-courses" onClick={() => setAccountMenuOpen(false)}>My Learning <ArrowRight size={14} /></Link>
+                <button className="account-signout" type="button" onClick={() => void signOut()} disabled={signingOut}><LogOut size={15} />{signingOut ? 'Signing out…' : 'Sign out'}</button>
+              </section>}
+            </div>
             : <><Link href="/login" className="login-button">Log in</Link><Link href="/login?mode=signup" className="signup-button">Get started <ArrowRight size={15} /></Link></>}
         </div>
         <button className="mobile-menu-button" onClick={() => setMobileMenu(!mobileMenu)} aria-label="Toggle navigation">{mobileMenu ? <X /> : <Menu />}</button>
