@@ -36,10 +36,11 @@ is server-simulated and is never enabled in `NODE_ENV=production`.
 1. Explore, search, combine the course filters, and open a self-paced course.
    Instructor-led course cards take you to their detail page to choose an
    available batch.
-2. Add a course, open the cart, and continue to checkout. Sign in with an email
-   or Indian phone number. In local development the API returns a short-lived
-   development OTP in its response; this is deliberately disabled in
-   production.
+2. Add a course, open the cart, and continue to checkout. Choose **Register**
+   to create a new account, or **Sign in** for an existing email or Indian phone
+   number. In local development the API returns a short-lived development OTP
+   in its response; this is deliberately disabled in production. Edit your
+   learning profile or sign out from the account menu in the storefront header.
 3. Complete billing details and the local payment simulation. A verified
    server-side test payment creates the enrollment; visit **My Courses**.
 4. For the admin studio, sign in as `admin@upskillin.demo`, then visit
