@@ -1,14 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, GraduationCap, ShieldCheck } from 'lucide-react';
 import { API_URL } from '@/lib/api';
 
 export function LoginForm() {
-  const [mode, setMode] = useState<'login' | 'register'>(() =>
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mode') === 'signup' ? 'register' : 'login',
-  );
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [identity, setIdentity] = useState('');
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -22,6 +20,10 @@ export function LoginForm() {
   const [busy, setBusy] = useState(false);
   const [consent, setConsent] = useState(false);
   const [user, setUser] = useState(false);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('mode') === 'signup') setMode('register');
+  }, []);
 
   const isEmail = identity.includes('@');
   const contact = isEmail ? { email: identity.trim() } : { phone: identity.trim() };
