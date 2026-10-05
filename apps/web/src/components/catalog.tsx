@@ -50,6 +50,7 @@ export function Catalog() {
   const [showFilters, setShowFilters] = useState(false);
   const [toast, setToast] = useState('');
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [userName, setUserName] = useState('');
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -87,6 +88,16 @@ export function Catalog() {
   }, [filters.q, queryString, loadCourses]);
 
   useEffect(() => {
+    const storedUser = localStorage.getItem('upskillin-user');
+    if (localStorage.getItem('upskillin-access-token') && storedUser) {
+      try {
+        const user = JSON.parse(storedUser) as { name?: unknown };
+        if (typeof user.name === 'string') setUserName(user.name.trim());
+      } catch (cause) {
+        console.error('Could not read the signed-in user from browser storage.', cause);
+      }
+    }
+
     try {
       const cart = JSON.parse(localStorage.getItem('upskillin-cart') ?? '[]') as Course[];
       setCartCount(cart.length);
@@ -133,8 +144,9 @@ export function Catalog() {
         <div className="header-actions">
           <Link href="/cart" className="header-cart"><BookOpen size={18} /><span>My learning</span></Link>
           <Link href="/cart" className="cart-button" aria-label={`Cart, ${cartCount} items`}><span>Cart</span><span className="cart-count">{cartCount}</span></Link>
-          <Link href="/login" className="login-button">Log in</Link>
-          <Link href="/login?mode=signup" className="signup-button">Get started <ArrowRight size={15} /></Link>
+          {userName
+            ? <Link href="/my-courses" className="account-link" aria-label={`Signed in as ${userName}`}>Hi, {userName}</Link>
+            : <><Link href="/login" className="login-button">Log in</Link><Link href="/login?mode=signup" className="signup-button">Get started <ArrowRight size={15} /></Link></>}
         </div>
         <button className="mobile-menu-button" onClick={() => setMobileMenu(!mobileMenu)} aria-label="Toggle navigation">{mobileMenu ? <X /> : <Menu />}</button>
       </header>

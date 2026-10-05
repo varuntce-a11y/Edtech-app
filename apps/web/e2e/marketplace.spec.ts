@@ -16,6 +16,7 @@ async function signIn(page: import('@playwright/test').Page, email: string, redi
 
 test('signup, browse a course, and complete a local test purchase', async ({ page }) => {
   await signIn(page, `learner-${Date.now()}@upskillin.demo`);
+  await expect(page.locator('.account-link')).toHaveText('Hi, Demo Learner');
   await expect(page.getByRole('heading', { name: 'Find your next skill.' })).toBeVisible();
   await page.getByLabel('Search courses').fill('Excel Mastery for Business Analysts');
   await page.getByRole('button', { name: /Add Excel Mastery for Business Analysts to cart/ }).click();
