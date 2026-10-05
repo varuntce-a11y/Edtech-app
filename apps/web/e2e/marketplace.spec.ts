@@ -11,14 +11,20 @@ async function signIn(page: import('@playwright/test').Page, email: string, redi
   const code = await page.locator('.dev-code strong').textContent();
   expect(code).toMatch(/^\d{6}$/);
   await page.getByLabel('6-digit verification code').fill(code!);
-  await page.getByRole('combobox', { name: 'What are you working towards?' }).selectOption('Data Analyst');
-  await page.getByLabel(/I agree to the privacy policy/).check();
+  if (mode === 'register') {
+    await page.getByRole('combobox', { name: 'What are you working towards?' }).selectOption('Data Analyst');
+    await page.getByLabel(/I agree to the privacy policy/).check();
+  } else {
+    await expect(page.getByLabel('Your name')).toHaveCount(0);
+    await expect(page.getByLabel(/I agree to the privacy policy/)).toHaveCount(0);
+  }
   await page.getByRole('button', { name: mode === 'register' ? 'Create account' : 'Sign in securely' }).click();
   await expect(page).toHaveURL(/localhost:3000\/(?:$|admin\/courses)/, { timeout: 10_000 });
 }
 
 test('signup, browse a course, and complete a local test purchase', async ({ page }) => {
-  await signIn(page, `learner-${Date.now()}@upskillin.demo`);
+  const email = `learner-${Date.now()}@upskillin.demo`;
+  await signIn(page, email);
   await expect(page.locator('.account-trigger-name')).toHaveText('Demo Learner');
   await page.getByRole('button', { name: 'Account details for Demo Learner' }).click();
   await expect(page.getByRole('region', { name: 'Account details' })).toContainText('Demo Learner');
@@ -50,6 +56,8 @@ test('signup, browse a course, and complete a local test purchase', async ({ pag
   await page.getByRole('button', { name: 'Account details for Demo Learner' }).click();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible();
+  await signIn(page, email, '/', 'login');
+  await expect(page.locator('.account-trigger-name')).toHaveText('Demo Learner');
 });
 
 test('combines catalog filters and keeps them in the URL', async ({ page }) => {
