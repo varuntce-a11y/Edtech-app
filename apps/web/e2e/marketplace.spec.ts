@@ -28,7 +28,6 @@ test('signup, browse a course, and complete a local test purchase', async ({ pag
   await page.getByLabel('City').fill('Bengaluru');
   await page.getByRole('button', { name: 'Save profile' }).click();
   await expect(page.getByRole('status')).toHaveText('Profile updated.');
-  await page.getByRole('button', { name: 'Account details for Demo Learner' }).click();
   await expect(page.getByRole('region', { name: 'Account details' })).toContainText('Bengaluru');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Find your next skill.' })).toBeVisible();
