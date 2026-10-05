@@ -7,28 +7,69 @@ import { API_URL, Course } from '@/lib/api';
 
 type Enrollment = { id: string; status: string; progress?: { percentage: number }; course: Course };
 
+let refreshInFlight: Promise<string | null> | null = null;
+
+function refreshAccessToken() {
+  if (!refreshInFlight) {
+    refreshInFlight = (async () => {
+      const refreshToken = localStorage.getItem('upskillin-refresh-token');
+      if (!refreshToken) return null;
+
+      const response = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      const refreshed = await response.json() as { accessToken?: string; refreshToken?: string };
+      if (!response.ok || !refreshed.accessToken || !refreshed.refreshToken) {
+        localStorage.removeItem('upskillin-access-token');
+        localStorage.removeItem('upskillin-refresh-token');
+        return null;
+      }
+      localStorage.setItem('upskillin-access-token', refreshed.accessToken);
+      localStorage.setItem('upskillin-refresh-token', refreshed.refreshToken);
+      return refreshed.accessToken;
+    })().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
 export function MyCourses() {
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    const token = localStorage.getItem('upskillin-access-token');
-    if (!token) {
-      window.location.href = '/login?redirect=%2Fmy-courses';
-      return;
+    async function loadCourses() {
+      let token = localStorage.getItem('upskillin-access-token');
+      if (!token) {
+        window.location.href = '/login?redirect=%2Fmy-courses';
+        return;
+      }
+
+      let response = await fetch(`${API_URL}/my-courses`, { headers: { Authorization: `Bearer ${token}` } });
+      if (response.status === 401) {
+        const refreshedToken = await refreshAccessToken();
+        if (!refreshedToken) {
+          localStorage.removeItem('upskillin-access-token');
+          window.location.href = '/login?redirect=%2Fmy-courses';
+          return;
+        }
+        token = refreshedToken;
+        response = await fetch(`${API_URL}/my-courses`, { headers: { Authorization: `Bearer ${token}` } });
+      }
+      if (!response.ok) throw new Error('Your learning could not be loaded. Please try again.');
+      setEnrollments(await response.json() as Enrollment[]);
     }
-    fetch(`${API_URL}/my-courses`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Your learning could not be loaded. Please sign in again.');
-        return await response.json() as Enrollment[];
-      })
-      .then(setEnrollments)
+
+    loadCourses()
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'Learning could not be loaded.'))
       .finally(() => setLoading(false));
   }, []);
   const active = enrollments.filter((entry) => entry.status !== 'COMPLETED');
   const completed = enrollments.filter((entry) => entry.status === 'COMPLETED');
-  return <main className="subpage"><header className="sub-nav"><Link href="/" className="brand"><span className="brand-icon"><GraduationCap size={20} /></span><span>upskill<span className="brand-in">in</span></span></Link><Link href="/">Explore courses <ArrowRight size={14} /></Link></header><section className="my-courses-page"><span className="eyebrow">YOUR NEXT CHAPTER, IN MOTION</span><h1>Keep growing.</h1><p className="learning-intro">Every small lesson is a step forward.</p>{error && <p className="form-error">{error}</p>}{loading ? <p>Loading your learning…</p> : enrollments.length === 0 ? <div className="empty-cart"><span><Sparkles size={22} /></span><h2>Your learning journey starts here.</h2><p>Find the course that helps you take your next step.</p><Link className="solid-link" href="/">Explore courses <ArrowRight size={15} /></Link></div> : <>
+  return <main className="subpage"><header className="sub-nav"><Link href="/" className="brand"><span className="brand-icon"><GraduationCap size={20} /></span><span>upskill<span className="brand-in">in</span></span></Link><Link href="/">Explore courses <ArrowRight size={14} /></Link></header><section className="my-courses-page"><span className="eyebrow">YOUR NEXT CHAPTER, IN MOTION</span><h1>Keep growing.</h1><p className="learning-intro">Every small lesson is a step forward.</p>{error && <p className="form-error" role="alert">{error}</p>}{loading ? <p>Loading your learning…</p> : error ? null : enrollments.length === 0 ? <div className="empty-cart"><span><Sparkles size={22} /></span><h2>Your learning journey starts here.</h2><p>Find the course that helps you take your next step.</p><Link className="solid-link" href="/">Explore courses <ArrowRight size={15} /></Link></div> : <>
     <h2 className="my-courses-heading">In progress <span>{active.length}</span></h2><div className="learning-grid">{active.map((entry) => <LearningCard key={entry.id} entry={entry} />)}</div>{completed.length > 0 && <><h2 className="my-courses-heading completed-heading">Completed <span>{completed.length}</span></h2><div className="learning-grid">{completed.map((entry) => <LearningCard key={entry.id} entry={entry} />)}</div></>}
     </>}</section></main>;
 }

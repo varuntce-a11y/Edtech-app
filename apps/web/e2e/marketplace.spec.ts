@@ -27,6 +27,9 @@ test('signup, browse a course, and complete a local test purchase', async ({ pag
   await page.getByLabel(/I agree to the refund policy/).check();
   await page.getByRole('button', { name: /Pay .* securely/ }).click();
   await expect(page.getByRole('heading', { name: 'One step closer.' })).toBeVisible({ timeout: 10_000 });
+  await page.evaluate(() => localStorage.setItem('upskillin-access-token', 'expired-access-token'));
+  await page.getByRole('link', { name: 'Go to My Courses' }).click();
+  await expect(page.getByRole('heading', { name: 'Excel Mastery for Business Analysts' })).toBeVisible();
 });
 
 test('combines catalog filters and keeps them in the URL', async ({ page }) => {

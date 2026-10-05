@@ -142,7 +142,7 @@ export function Catalog() {
           <a href="#how-it-works">For instructors</a>
         </nav>
         <div className="header-actions">
-          <Link href="/cart" className="header-cart"><BookOpen size={18} /><span>My learning</span></Link>
+          <Link href="/my-courses" className="header-cart"><BookOpen size={18} /><span>My learning</span></Link>
           <Link href="/cart" className="cart-button" aria-label={`Cart, ${cartCount} items`}><span>Cart</span><span className="cart-count">{cartCount}</span></Link>
           {userName
             ? <Link href="/my-courses" className="account-link" aria-label={`Signed in as ${userName}`}>Hi, {userName}</Link>
