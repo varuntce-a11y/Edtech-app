@@ -1,9 +1,10 @@
-import { HttpException, HttpStatus, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, NotFoundException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { createHmac, randomBytes, randomInt } from 'node:crypto';
 import { PrismaService } from '../prisma.service';
 
-type OtpRequest = { email?: string; phone?: string };
-type OtpRecord = { hash: string; expiresAt: number; attempts: number; sentAt: number };
+type AuthMode = 'login' | 'register';
+type OtpRequest = { email?: string; phone?: string; mode?: AuthMode };
+type OtpRecord = { hash: string; expiresAt: number; attempts: number; sentAt: number; mode: AuthMode };
 type VerifyRequest = OtpRequest & {
   code: string;
   name?: string;
@@ -12,6 +13,14 @@ type VerifyRequest = OtpRequest & {
   educationLevel?: string;
   experienceYears?: number;
   consent: boolean;
+};
+type ProfileUpdate = {
+  name?: string;
+  educationLevel?: string | null;
+  experienceYears?: number | null;
+  targetRole?: string | null;
+  preferredLanguage?: string;
+  city?: string | null;
 };
 
 @Injectable()
@@ -23,6 +32,10 @@ export class AuthService {
 
   async requestOtp(input: OtpRequest) {
     const identity = this.identity(input);
+    const mode = input.mode ?? 'login';
+    const existingUser = await this.findUser(input);
+    if (mode === 'register' && existingUser) throw new ConflictException('An account already exists. Choose sign in instead.');
+    if (mode === 'login' && !existingUser) throw new NotFoundException('No account was found. Choose register to create one.');
     const now = Date.now();
     const previous = this.records.get(identity);
     if (previous && now - previous.sentAt < 60_000) {
@@ -39,6 +52,7 @@ export class AuthService {
       expiresAt: now + 5 * 60_000,
       attempts: 0,
       sentAt: now,
+      mode,
     });
     if (process.env.NODE_ENV === 'production') {
       const response = await fetch(process.env.OTP_DELIVERY_URL!, {
@@ -63,50 +77,91 @@ export class AuthService {
       throw new UnauthorizedException('The code is invalid or expired');
     }
     record.attempts += 1;
-    if (!this.secret || this.hash(identity, input.code) !== record.hash) {
+    if (!this.secret || this.hash(identity, input.code) !== record.hash || record.mode !== (input.mode ?? 'login')) {
       throw new UnauthorizedException('The code is invalid or expired');
     }
     this.records.delete(identity);
     if (!input.consent) throw new UnauthorizedException('Consent is required to create an account');
     if (!process.env.JWT_REFRESH_SECRET) throw new ServiceUnavailableException('Refresh token signing is not configured');
-    const user = await this.prisma.user.upsert({
-      where: input.email ? { email: input.email.toLowerCase() } : { phone: input.phone },
-      create: {
-        email: input.email?.toLowerCase(),
-        phone: input.phone,
-        name: input.name ?? input.email?.split('@')[0] ?? 'Learner',
-        profile: {
-          create: {
-            preferredLanguage: input.preferredLanguage ?? 'en',
-            targetRole: input.targetRole,
-            educationLevel: input.educationLevel,
-            experienceYears: input.experienceYears,
+    const existingUser = await this.findUser(input);
+    if (record.mode === 'register') {
+      if (existingUser) throw new ConflictException('An account already exists. Choose sign in instead.');
+      if (!input.name?.trim()) throw new BadRequestException('Your name is required to register');
+    } else if (!existingUser) {
+      throw new NotFoundException('No account was found. Choose register to create one.');
+    }
+
+    const profileData = {
+      preferredLanguage: input.preferredLanguage ?? 'en',
+      targetRole: input.targetRole,
+      educationLevel: input.educationLevel,
+      experienceYears: input.experienceYears,
+    };
+    const user = record.mode === 'register'
+      ? await this.prisma.user.create({
+        data: {
+          email: input.email?.trim().toLowerCase(),
+          phone: input.phone?.trim(),
+          name: input.name!.trim(),
+          profile: { create: profileData },
+        },
+        include: { profile: true },
+      })
+      : await this.prisma.user.update({
+        where: { id: existingUser!.id },
+        data: {
+          ...(input.name?.trim() ? { name: input.name.trim() } : {}),
+          profile: {
+            upsert: {
+              create: profileData,
+              update: {
+                ...(input.preferredLanguage ? { preferredLanguage: input.preferredLanguage } : {}),
+                ...(input.targetRole ? { targetRole: input.targetRole } : {}),
+                ...(input.educationLevel ? { educationLevel: input.educationLevel } : {}),
+                ...(input.experienceYears !== undefined ? { experienceYears: input.experienceYears } : {}),
+              },
+            },
           },
         },
-      },
-      update: {
-        ...(input.name ? { name: input.name } : {}),
+        include: { profile: true },
+      });
+    await this.prisma.consent.create({ data: { userId: user.id, purpose: 'DPDP_ACT_LEARNING_SERVICES', granted: true } });
+    return { user, ...await this.issueTokens(user.id) };
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { profile: true } });
+    if (!user) throw new NotFoundException('Account not found');
+    return user;
+  }
+
+  async updateProfile(userId: string, input: ProfileUpdate) {
+    const profileData = {
+      ...(input.educationLevel !== undefined ? { educationLevel: input.educationLevel } : {}),
+      ...(input.experienceYears !== undefined ? { experienceYears: input.experienceYears } : {}),
+      ...(input.targetRole !== undefined ? { targetRole: input.targetRole } : {}),
+      ...(input.preferredLanguage !== undefined ? { preferredLanguage: input.preferredLanguage } : {}),
+      ...(input.city !== undefined ? { city: input.city } : {}),
+    };
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(input.name !== undefined ? { name: input.name.trim() } : {}),
         profile: {
           upsert: {
-            create: {
-              preferredLanguage: input.preferredLanguage ?? 'en',
-              targetRole: input.targetRole,
-              educationLevel: input.educationLevel,
-              experienceYears: input.experienceYears,
-            },
-            update: {
-              ...(input.preferredLanguage ? { preferredLanguage: input.preferredLanguage } : {}),
-              ...(input.targetRole ? { targetRole: input.targetRole } : {}),
-              ...(input.educationLevel ? { educationLevel: input.educationLevel } : {}),
-              ...(input.experienceYears !== undefined ? { experienceYears: input.experienceYears } : {}),
-            },
+            create: { preferredLanguage: 'en', ...profileData },
+            update: profileData,
           },
         },
       },
       include: { profile: true },
     });
-    await this.prisma.consent.create({ data: { userId: user.id, purpose: 'DPDP_ACT_LEARNING_SERVICES', granted: true } });
-    return { user, ...await this.issueTokens(user.id) };
+  }
+
+  private async findUser(input: OtpRequest) {
+    return input.email
+      ? this.prisma.user.findUnique({ where: { email: input.email.trim().toLowerCase() } })
+      : this.prisma.user.findUnique({ where: { phone: input.phone?.trim() } });
   }
 
   async refresh(token: string) {
