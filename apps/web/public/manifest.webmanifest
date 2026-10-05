@@ -1,0 +1,9 @@
+{
+  "name": "UpSkillIN",
+  "short_name": "UpSkillIN",
+  "description": "Practical skills for your next career move",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f8f5",
+  "theme_color": "#126a57"
+}

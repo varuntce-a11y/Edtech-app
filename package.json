@@ -1,0 +1,23 @@
+{
+  "name": "upskillin",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n web,api -c cyan,magenta \"npm run dev -w @upskillin/web\" \"npm run start:dev -w @upskillin/api\"",
+    "build": "npm run build -w @upskillin/web && npm run build -w @upskillin/api",
+    "test": "npm run test -w @upskillin/api && npm run test -w @upskillin/web",
+    "db:init": "npm run prisma:generate -w @upskillin/api && npm run prisma:migrate -w @upskillin/api -- --name init && npm run prisma:seed -w @upskillin/api",
+    "db:generate": "npm run prisma:generate -w @upskillin/api",
+    "db:seed": "npm run prisma:seed -w @upskillin/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "overrides": {
+    "js-yaml": "^5.4.2",
+    "braces": "^3.0.3"
+  }
+}
