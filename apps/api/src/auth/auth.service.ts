@@ -146,8 +146,8 @@ export class AuthService {
 
   private async findUser(input: OtpRequest) {
     return input.email
-      ? this.prisma.user.findUnique({ where: { email: input.email.trim().toLowerCase() } })
-      : this.prisma.user.findUnique({ where: { phone: input.phone?.trim() } });
+      ? this.prisma.user.findUnique({ where: { email: input.email.trim().toLowerCase() }, include: { profile: true } })
+      : this.prisma.user.findUnique({ where: { phone: input.phone?.trim() }, include: { profile: true } });
   }
 
   async refresh(token: string) {

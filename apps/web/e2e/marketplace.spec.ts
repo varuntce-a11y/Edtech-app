@@ -63,6 +63,10 @@ test('signup, browse a course, and complete a local test purchase', async ({ pag
   await expect(page.getByRole('link', { name: 'Log in' })).toBeVisible();
   await signIn(page, email, '/', 'login');
   await expect(page.locator('.account-trigger-name')).toHaveText('Demo Learner');
+  await page.getByRole('button', { name: 'Account details for Demo Learner' }).click();
+  const accountDetails = page.getByRole('region', { name: 'Account details' });
+  await expect(accountDetails.getByText('Data Analyst', { exact: true })).toBeVisible();
+  await expect(accountDetails).toContainText('Bengaluru');
 });
 
 test('combines catalog filters and keeps them in the URL', async ({ page }) => {
