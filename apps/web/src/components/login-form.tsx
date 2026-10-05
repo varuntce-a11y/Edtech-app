@@ -6,6 +6,9 @@ import { ArrowLeft, ArrowRight, GraduationCap, ShieldCheck } from 'lucide-react'
 import { API_URL } from '@/lib/api';
 
 export function LoginForm() {
+  const [mode, setMode] = useState<'login' | 'register'>(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mode') === 'signup' ? 'register' : 'login',
+  );
   const [identity, setIdentity] = useState('');
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
@@ -34,6 +37,7 @@ export function LoginForm() {
         body: JSON.stringify(otpSent
           ? {
             ...contact,
+            mode,
             code,
             name: name || undefined,
             targetRole: targetRole || undefined,
@@ -42,7 +46,7 @@ export function LoginForm() {
             preferredLanguage: language,
             consent,
           }
-          : contact),
+          : { ...contact, mode }),
       });
       const data = await response.json() as { message?: string; developmentCode?: string; accessToken?: string; refreshToken?: string; user?: { name?: string } };
       if (!response.ok) throw new Error(data.message ?? 'We could not complete that request. Please try again.');
@@ -76,12 +80,16 @@ export function LoginForm() {
   return <main className="auth-page">
     <div className="auth-top"><Link href="/" className="brand"><span className="brand-icon"><GraduationCap size={20} /></span><span>upskill<span className="brand-in">in</span></span></Link><Link href="/" className="back-link"><ArrowLeft size={14} /> Back to courses</Link></div>
     <div className="auth-grid"><section className="auth-story"><span className="eyebrow">YOUR NEXT CHAPTER STARTS HERE</span><h1>One skill can<br />change your <i>next.</i></h1><p>Find practical learning that fits your life and takes you where you want to go.</p><div className="auth-points"><span><ShieldCheck size={16} />Your data stays yours</span><span><GraduationCap size={16} />Learn from verified instructors</span></div><div className="auth-orbit" /></section>
-      <section className="auth-card"><span className="eyebrow">{user ? 'YOU’RE ALL SET' : otpSent ? 'ONE LAST STEP' : 'WELCOME TO UPSKILLIN'}</span><h2>{user ? 'You’re signed in.' : otpSent ? 'Check your messages.' : 'Let’s get you moving.'}</h2><p>{user ? 'Taking you to the next step…' : otpSent ? `Enter the 6-digit code sent to ${identity}.` : 'Sign in or create your free learner account.'}</p>
+      <section className="auth-card"><span className="eyebrow">{user ? 'YOU’RE ALL SET' : otpSent ? 'ONE LAST STEP' : mode === 'register' ? 'CREATE YOUR UPSKILLIN ACCOUNT' : 'WELCOME TO UPSKILLIN'}</span><h2>{user ? 'You’re signed in.' : otpSent ? 'Check your messages.' : mode === 'register' ? 'Start your next chapter.' : 'Let’s get you moving.'}</h2><p>{user ? 'Taking you to the next step…' : otpSent ? `Enter the 6-digit code sent to ${identity}.` : mode === 'register' ? 'Create your free account and find practical learning for your career.' : 'Sign in to continue your learning journey.'}</p>
         {user && error && <div className="form-error" role="alert">{error}<Link className="login-cart-link" href="/cart">Review your saved cart <ArrowRight size={13} /></Link></div>}
         {!user && <form onSubmit={submit}>
+          {!otpSent && <div className="auth-mode-switch" aria-label="Account access">
+            <button type="button" aria-pressed={mode === 'login'} className={mode === 'login' ? 'auth-mode-active' : ''} onClick={() => { setMode('login'); setError(''); }}>Sign in</button>
+            <button type="button" aria-pressed={mode === 'register'} className={mode === 'register' ? 'auth-mode-active' : ''} onClick={() => { setMode('register'); setError(''); }}>Register</button>
+          </div>}
           {!otpSent && <label>Email or mobile number<input autoComplete="email" value={identity} onChange={(event) => setIdentity(event.target.value)} placeholder="you@example.com or +91 98765 43210" required /></label>}
+          {!otpSent && mode === 'register' && <label>Your name<input autoComplete="name" minLength={2} maxLength={80} value={name} onChange={(event) => setName(event.target.value)} placeholder="How should we address you?" required /></label>}
           {otpSent && <>
-            <label>Your name<input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="How should we address you?" /></label>
             <label>6-digit verification code<input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter your code" required /></label>
             <label>Education level<select value={educationLevel} onChange={(event) => setEducationLevel(event.target.value)}><option value="">Choose your education level (optional)</option><option>Undergraduate</option><option>Graduate</option><option>Postgraduate</option><option>Diploma</option><option>Other</option></select></label>
             <label>Years of experience<input type="number" min="0" max="60" value={experienceYears} onChange={(event) => setExperienceYears(event.target.value)} placeholder="Optional" /></label>
@@ -91,7 +99,7 @@ export function LoginForm() {
           </>}
           {error && <div className="form-error" role="alert">{error}</div>}
           {developmentCode && <div className="dev-code">Local development code: <strong>{developmentCode}</strong></div>}
-          <button className="auth-submit" disabled={busy || (otpSent && !consent)}>{busy ? 'Please wait…' : otpSent ? 'Verify & continue' : 'Continue with email or phone'} <ArrowRight size={16} /></button>
+          <button className="auth-submit" disabled={busy || (otpSent && !consent)}>{busy ? 'Please wait…' : otpSent ? mode === 'register' ? 'Create account' : 'Sign in securely' : mode === 'register' ? 'Continue registration' : 'Continue with email or phone'} <ArrowRight size={16} /></button>
           {otpSent && <button type="button" className="resend-code" onClick={() => { setOtpSent(false); setDevelopmentCode(''); setCode(''); }}>Use a different email or number</button>}
         </form>}
         {!user && !otpSent && <div className="auth-legal">By continuing, you agree to our <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>.</div>}

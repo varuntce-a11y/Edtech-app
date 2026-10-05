@@ -1,16 +1,19 @@
 import { expect, test } from '@playwright/test';
 
-async function signIn(page: import('@playwright/test').Page, email: string, redirect = '/') {
-  await page.goto(`/login?redirect=${encodeURIComponent(redirect)}`);
+async function signIn(page: import('@playwright/test').Page, email: string, redirect = '/', mode: 'login' | 'register' = 'register') {
+  await page.goto(`/login?redirect=${encodeURIComponent(redirect)}&mode=${mode === 'register' ? 'signup' : 'login'}`);
   await page.getByLabel('Email or mobile number').fill(email);
-  await page.getByRole('button', { name: 'Continue with email or phone' }).click();
+  if (mode === 'register') {
+    await expect(page.getByRole('button', { name: 'Register', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByLabel('Your name').fill('Demo Learner');
+  }
+  await page.getByRole('button', { name: mode === 'register' ? 'Continue registration' : 'Continue with email or phone' }).click();
   const code = await page.locator('.dev-code strong').textContent();
   expect(code).toMatch(/^\d{6}$/);
-  await page.getByLabel('Your name').fill('Demo Learner');
   await page.getByLabel('6-digit verification code').fill(code!);
   await page.getByRole('combobox', { name: 'What are you working towards?' }).selectOption('Data Analyst');
   await page.getByLabel(/I agree to the privacy policy/).check();
-  await page.getByRole('button', { name: 'Verify & continue' }).click();
+  await page.getByRole('button', { name: mode === 'register' ? 'Create account' : 'Sign in securely' }).click();
   await expect(page).toHaveURL(/localhost:3000\/(?:$|admin\/courses)/, { timeout: 10_000 });
 }
 
@@ -21,6 +24,12 @@ test('signup, browse a course, and complete a local test purchase', async ({ pag
   await expect(page.getByRole('region', { name: 'Account details' })).toContainText('Demo Learner');
   await expect(page.getByText(/learner-.*@upskillin\.demo/)).toBeVisible();
   await expect(page.getByRole('region', { name: 'Account details' }).getByText('Data Analyst', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Edit profile' }).click();
+  await page.getByLabel('City').fill('Bengaluru');
+  await page.getByRole('button', { name: 'Save profile' }).click();
+  await expect(page.getByRole('status')).toHaveText('Profile updated.');
+  await page.getByRole('button', { name: 'Account details for Demo Learner' }).click();
+  await expect(page.getByRole('region', { name: 'Account details' })).toContainText('Bengaluru');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('heading', { name: 'Find your next skill.' })).toBeVisible();
   await page.getByLabel('Search courses').fill('Excel Mastery for Business Analysts');
@@ -73,7 +82,7 @@ test('combines catalog filters and keeps them in the URL', async ({ page }) => {
 });
 
 test('admin creates a course draft from the course studio', async ({ page }) => {
-  await signIn(page, 'admin@upskillin.demo', '/admin/courses');
+  await signIn(page, 'admin@upskillin.demo', '/admin/courses', 'login');
   const courseTitle = `Practical SQL for Hyderabad Analysts ${Date.now()}`;
   await page.getByLabel('Course title').fill(courseTitle);
   await page.getByLabel('Short description').fill('Learn SQL skills for practical analyst work.');

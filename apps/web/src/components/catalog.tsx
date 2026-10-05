@@ -1,15 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDownUp, ArrowRight, BookOpen, Check, ChevronDown, Clock3, GraduationCap, LogOut, Menu, Search, SlidersHorizontal, Sparkles, Star, UserRound, X } from 'lucide-react';
-import { API_URL, CatalogResponse, Course, formatRupees, languageNames, modeNames } from '@/lib/api';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowDownUp, ArrowRight, BookOpen, Check, ChevronDown, Clock3, GraduationCap, LogOut, Menu, Pencil, Search, SlidersHorizontal, Sparkles, Star, UserRound, X } from 'lucide-react';
+import { API_URL, authenticatedFetch, CatalogResponse, Course, formatRupees, languageNames, modeNames } from '@/lib/api';
 
 const topics = ['Data & Analytics', 'Artificial Intelligence', 'Finance & GST', 'Communication', 'Interview Prep', 'Software Development', 'Career & Business', 'Design & Creativity'];
 const languages = ['en', 'hi', 'ta', 'te', 'kn', 'mr', 'bn'];
 const blankFilters = { q: '', topic: '', language: '', mode: '', assessment: '', instructor: '', minPrice: '', maxPrice: '', sort: 'relevance' };
 type Filters = typeof blankFilters;
 type AccountProfile = {
+  name?: string;
   email?: string | null;
   phone?: string | null;
   role?: string;
@@ -20,6 +21,14 @@ type AccountProfile = {
     preferredLanguage?: string | null;
     city?: string | null;
   } | null;
+};
+type ProfileDraft = {
+  name: string;
+  educationLevel: string;
+  experienceYears: string;
+  targetRole: string;
+  preferredLanguage: string;
+  city: string;
 };
 
 function getInitialFilters(): Filters {
@@ -66,6 +75,11 @@ export function Catalog() {
   const [accountProfile, setAccountProfile] = useState<AccountProfile | null>(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileDraft, setProfileDraft] = useState<ProfileDraft>({ name: '', educationLevel: '', experienceYears: '', targetRole: '', preferredLanguage: 'en', city: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileNotice, setProfileNotice] = useState('');
   const accountMenuRef = useRef<HTMLDivElement>(null);
 
   const queryString = useMemo(() => {
@@ -143,6 +157,55 @@ export function Catalog() {
     };
   }, [accountMenuOpen]);
 
+  function startEditingProfile() {
+    setProfileDraft({
+      name: userName,
+      educationLevel: accountProfile?.profile?.educationLevel ?? '',
+      experienceYears: accountProfile?.profile?.experienceYears?.toString() ?? '',
+      targetRole: accountProfile?.profile?.targetRole ?? '',
+      preferredLanguage: accountProfile?.profile?.preferredLanguage ?? 'en',
+      city: accountProfile?.profile?.city ?? '',
+    });
+    setProfileError('');
+    setProfileNotice('');
+    setEditingProfile(true);
+  }
+
+  async function saveProfile(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingProfile(true);
+    setProfileError('');
+    setProfileNotice('');
+    try {
+      const response = await authenticatedFetch(`${API_URL}/auth/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: profileDraft.name.trim(),
+          educationLevel: profileDraft.educationLevel || null,
+          experienceYears: profileDraft.experienceYears === '' ? null : Number(profileDraft.experienceYears),
+          targetRole: profileDraft.targetRole || null,
+          preferredLanguage: profileDraft.preferredLanguage,
+          city: profileDraft.city.trim() || null,
+        }),
+      });
+      const data = await response.json() as AccountProfile & { message?: string | string[] };
+      if (!response.ok) {
+        const message = Array.isArray(data.message) ? data.message.join(', ') : data.message;
+        throw new Error(message ?? 'Your profile could not be updated.');
+      }
+      setAccountProfile(data);
+      setUserName(data.name ?? profileDraft.name.trim());
+      localStorage.setItem('upskillin-user', JSON.stringify(data));
+      setEditingProfile(false);
+      setProfileNotice('Profile updated.');
+    } catch (cause) {
+      setProfileError(cause instanceof Error ? cause.message : 'Your profile could not be updated.');
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
   async function signOut() {
     setSigningOut(true);
     const refreshToken = localStorage.getItem('upskillin-refresh-token');
@@ -166,6 +229,7 @@ export function Catalog() {
     setUserName('');
     setAccountProfile(null);
     setAccountMenuOpen(false);
+    setEditingProfile(false);
     setSigningOut(false);
     setToast(revokeError ? 'Signed out on this device, but the server session could not be revoked.' : 'You have been signed out.');
     window.setTimeout(() => setToast(''), 4000);
@@ -216,14 +280,27 @@ export function Catalog() {
               </button>
               {accountMenuOpen && <section className="account-menu" id="account-details-menu" aria-label="Account details">
                 <div className="account-menu-heading"><UserRound size={18} /><div><strong>{userName}</strong><span>{accountProfile?.role?.toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase()) ?? 'Learner'} account</span></div></div>
-                <dl className="account-profile">
-                  {(accountProfile?.email || accountProfile?.phone) && <div><dt>Contact</dt><dd>{accountProfile.email || accountProfile.phone}</dd></div>}
-                  {accountProfile?.profile?.educationLevel && <div><dt>Education</dt><dd>{accountProfile.profile.educationLevel}</dd></div>}
-                  {accountProfile?.profile?.experienceYears != null && <div><dt>Experience</dt><dd>{accountProfile.profile.experienceYears} {accountProfile.profile.experienceYears === 1 ? 'year' : 'years'}</dd></div>}
-                  {accountProfile?.profile?.targetRole && <div><dt>Career goal</dt><dd>{accountProfile.profile.targetRole}</dd></div>}
-                  {accountProfile?.profile?.preferredLanguage && <div><dt>Language</dt><dd>{languageNames[accountProfile.profile.preferredLanguage] ?? accountProfile.profile.preferredLanguage}</dd></div>}
-                  {accountProfile?.profile?.city && <div><dt>City</dt><dd>{accountProfile.profile.city}</dd></div>}
-                </dl>
+                {editingProfile
+                  ? <form className="account-edit-form" onSubmit={saveProfile}>
+                    <label>Full name<input required minLength={2} maxLength={80} value={profileDraft.name} onChange={(event) => setProfileDraft({ ...profileDraft, name: event.target.value })} /></label>
+                    <label>Education level<select value={profileDraft.educationLevel} onChange={(event) => setProfileDraft({ ...profileDraft, educationLevel: event.target.value })}><option value="">Not specified</option><option>Undergraduate</option><option>Graduate</option><option>Postgraduate</option><option>Diploma</option><option>Other</option></select></label>
+                    <label>Years of experience<input type="number" min="0" max="60" value={profileDraft.experienceYears} onChange={(event) => setProfileDraft({ ...profileDraft, experienceYears: event.target.value })} /></label>
+                    <label>Career goal<select value={profileDraft.targetRole} onChange={(event) => setProfileDraft({ ...profileDraft, targetRole: event.target.value })}><option value="">Not specified</option><option>Data Analyst</option><option>Software Developer</option><option>Business Analyst</option><option>Finance Professional</option><option>Product Manager</option><option>Career switch</option></select></label>
+                    <label>Preferred language<select value={profileDraft.preferredLanguage} onChange={(event) => setProfileDraft({ ...profileDraft, preferredLanguage: event.target.value })}>{languages.map((language) => <option key={language} value={language}>{languageNames[language]}</option>)}</select></label>
+                    <label>City<input maxLength={100} value={profileDraft.city} onChange={(event) => setProfileDraft({ ...profileDraft, city: event.target.value })} /></label>
+                    {profileError && <p className="form-error" role="alert">{profileError}</p>}
+                    <div className="account-edit-actions"><button type="button" onClick={() => { setEditingProfile(false); setProfileError(''); }}>Cancel</button><button type="submit" disabled={savingProfile}>{savingProfile ? 'Saving…' : 'Save profile'}</button></div>
+                  </form>
+                  : <dl className="account-profile">
+                    {(accountProfile?.email || accountProfile?.phone) && <div><dt>Contact</dt><dd>{accountProfile.email || accountProfile.phone}</dd></div>}
+                    {accountProfile?.profile?.educationLevel && <div><dt>Education</dt><dd>{accountProfile.profile.educationLevel}</dd></div>}
+                    {accountProfile?.profile?.experienceYears != null && <div><dt>Experience</dt><dd>{accountProfile.profile.experienceYears} {accountProfile.profile.experienceYears === 1 ? 'year' : 'years'}</dd></div>}
+                    {accountProfile?.profile?.targetRole && <div><dt>Career goal</dt><dd>{accountProfile.profile.targetRole}</dd></div>}
+                    {accountProfile?.profile?.preferredLanguage && <div><dt>Language</dt><dd>{languageNames[accountProfile.profile.preferredLanguage] ?? accountProfile.profile.preferredLanguage}</dd></div>}
+                    {accountProfile?.profile?.city && <div><dt>City</dt><dd>{accountProfile.profile.city}</dd></div>}
+                    <button className="account-edit-button" type="button" onClick={startEditingProfile}><Pencil size={13} />Edit profile</button>
+                  </dl>}
+                {profileNotice && <p className="account-profile-notice" role="status">{profileNotice}</p>}
                 <Link className="account-learning-link" href="/my-courses" onClick={() => setAccountMenuOpen(false)}>My Learning <ArrowRight size={14} /></Link>
                 <button className="account-signout" type="button" onClick={() => void signOut()} disabled={signingOut}><LogOut size={15} />{signingOut ? 'Signing out…' : 'Sign out'}</button>
               </section>}

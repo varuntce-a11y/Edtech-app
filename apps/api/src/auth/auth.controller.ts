@@ -71,7 +71,7 @@ class UpdateProfileDto {
   @MaxLength(80)
   educationLevel?: string | null;
 
-  @Transform(({ value }) => value === '' ? null : value === null ? null : Number(value))
+  @Transform(({ value }) => value === undefined ? undefined : value === '' || value === null ? null : Number(value))
   @IsOptional()
   @IsInt()
   @Min(0)

@@ -35,6 +35,15 @@ button{color:inherit}
 .account-profile>div{display:flex;justify-content:space-between;gap:12px;padding:7px 0}
 .account-profile dt{color:#79847d;font-size:10px}
 .account-profile dd{margin:0;color:#34473c;font-size:10px;font-weight:600;text-align:right;overflow-wrap:anywhere}
+.account-edit-button{display:flex;align-items:center;gap:6px;margin-top:4px;padding:9px 0 2px;border:0;border-top:1px solid #edf0ed;background:transparent;color:#176b57;text-align:left;font:inherit;font-size:11px;font-weight:600;cursor:pointer}
+.account-edit-form{display:grid;gap:9px;padding-top:12px}
+.account-edit-form label{display:grid;gap:4px;color:#69766e;font-size:10px}
+.account-edit-form input,.account-edit-form select{width:100%;min-height:34px;padding:7px 8px;border:1px solid #dfe5de;border-radius:4px;background:#fff;color:#34473c;font:inherit;font-size:11px}
+.account-edit-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:8px;border-top:1px solid #edf0ed}
+.account-edit-actions button{padding:7px 10px;border:1px solid #dfe5de;border-radius:4px;background:#fff;color:#53645a;font:inherit;font-size:10px;cursor:pointer}
+.account-edit-actions button[type="submit"]{border-color:#176b57;background:#176b57;color:#fff}
+.account-edit-actions button:disabled{opacity:.6;cursor:wait}
+.account-profile-notice{margin:8px 0 0;color:#26704d;font-size:10px}
 .account-learning-link{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid #edf0ed;color:#176b57;font-size:11px;font-weight:600}
 .account-signout{display:flex;align-items:center;gap:8px;width:100%;padding:10px 0 2px;border:0;border-top:1px solid #edf0ed;background:transparent;color:#9a4139;text-align:left;font:inherit;font-size:11px;font-weight:600;cursor:pointer}
 .account-signout:disabled{opacity:.6;cursor:wait}
