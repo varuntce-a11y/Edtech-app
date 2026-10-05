@@ -37,7 +37,7 @@ test('combines catalog filters and keeps them in the URL', async ({ page }) => {
   await page.getByRole('button', { name: /Filters/ }).click();
   await page.getByLabel('Topic').selectOption('Artificial Intelligence');
   await page.getByLabel('Delivery').selectOption('virtual');
-  await page.getByLabel('Course language').selectOption('hi');
+  await page.getByLabel('Course language').selectOption('en');
   await page.getByLabel('Assessment').selectOption('no');
   await page.getByLabel('Instructor').fill('Neha');
   await page.getByLabel('Minimum price in rupees').evaluate((element) => {
@@ -54,7 +54,7 @@ test('combines catalog filters and keeps them in the URL', async ({ page }) => {
   });
   await expect(page).toHaveURL(/topic=Artificial\+Intelligence/);
   await expect(page).toHaveURL(/mode=virtual/);
-  await expect(page).toHaveURL(/language=hi/);
+  await expect(page).toHaveURL(/language=en/);
   await expect(page).toHaveURL(/assessment=no/);
   await expect(page).toHaveURL(/minPrice=3000/);
   await expect(page.getByText('1 course to explore')).toBeVisible();
@@ -62,15 +62,16 @@ test('combines catalog filters and keeps them in the URL', async ({ page }) => {
 
 test('admin creates a course draft from the course studio', async ({ page }) => {
   await signIn(page, 'admin@upskillin.demo', '/admin/courses');
-  await page.getByLabel('Course title').fill('Practical SQL for Hyderabad Analysts');
+  const courseTitle = `Practical SQL for Hyderabad Analysts ${Date.now()}`;
+  await page.getByLabel('Course title').fill(courseTitle);
   await page.getByLabel('Short description').fill('Learn SQL skills for practical analyst work.');
   await page.getByLabel('Course description').fill('A practical SQL course for graduates and professionals. Build queries, explore datasets and prepare for analyst interviews.');
   await page.getByLabel('Topic').fill('Data & Analytics');
   await page.getByLabel('Course language').selectOption('en');
   await page.getByLabel('Delivery format').selectOption('SELF_PACED');
   await page.getByLabel('Price (INR)').fill('2499');
-  await page.getByLabel('Instructor').selectOption({ index: 1 });
+  await page.locator('select[name="instructorId"]').selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Save course draft' }).click();
-  await expect(page.getByText(/saved as a draft/)).toBeVisible();
-  await expect(page.getByText('Practical SQL for Hyderabad Analysts')).toBeVisible();
+  await expect(page.getByText(`${courseTitle} saved as a draft. Publish it when it is ready.`)).toBeVisible();
+  await expect(page.locator('.admin-course-list').getByText(courseTitle, { exact: true })).toBeVisible();
 });

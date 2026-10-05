@@ -193,7 +193,7 @@ export function Catalog() {
           <label>Max. price · {filters.maxPrice ? `₹${Number(filters.maxPrice).toLocaleString('en-IN')}` : 'No limit'}<input aria-label="Maximum price in rupees" type="range" min="0" max="15000" step="500" value={filters.maxPrice || '15000'} onChange={(event) => updateFilter('maxPrice', event.target.value === '15000' ? '' : event.target.value)} /></label>
           <button className="clear-filters" onClick={() => setFilters(blankFilters)}>Clear all <X size={13} /></button>
         </div>}
-        <div className="results-line"><span>{loading ? 'Finding the right courses…' : error ? 'Course results are unavailable' : `${result?.total ?? 0} courses to explore`}</span>{activeFilters.length > 0 && <button onClick={() => setFilters(blankFilters)}>Clear filters <X size={13} /></button>}</div>
+        <div className="results-line"><span>{loading ? 'Finding the right courses…' : error ? 'Course results are unavailable' : `${result?.total ?? 0} ${(result?.total ?? 0) === 1 ? 'course' : 'courses'} to explore`}</span>{activeFilters.length > 0 && <button onClick={() => setFilters(blankFilters)}>Clear filters <X size={13} /></button>}</div>
         {error ? <div className="catalog-message"><p>{error}</p><button className="retry-button" onClick={() => void loadCourses()}>Try again</button></div>
           : loading ? <div className="course-grid">{[1, 2, 3, 4].map((item) => <div className="course-skeleton" key={item}><div /><span /><span /></div>)}</div>
             : result?.items.length ? <div className="course-grid">{result.items.map((course) => <CourseCard key={course.id} course={course} onAdd={addToCart} />)}</div>

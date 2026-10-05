@@ -10,16 +10,29 @@ export default defineConfig({
     trace: 'retain-on-failure',
     ...devices['Desktop Chrome'],
   },
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: {
-      ...process.env,
-      NODE_ENV: 'development',
-      PAYMENT_PROVIDER: 'simulated',
-      NEXT_PUBLIC_API_URL: 'http://localhost:4000/api',
+  webServer: [
+    {
+      command: 'npm run start:dev -w @upskillin/api',
+      url: 'http://localhost:4000/api/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        NODE_ENV: 'development',
+        PAYMENT_PROVIDER: 'simulated',
+      },
     },
-  },
+    {
+      command: 'npm run dev',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        NODE_ENV: 'development',
+        PAYMENT_PROVIDER: 'simulated',
+        NEXT_PUBLIC_API_URL: 'http://localhost:4000/api',
+      },
+    },
+  ],
 });
