@@ -24,6 +24,10 @@ every marketplace/compliance integration is production-certified.
   cities. Production operators must create and maintain real schedules.
 - Catalog language denotes course content language; UI translation is not
   inferred from it.
+- The first UI uses small bespoke accessible React components with Tailwind v4
+  available for utilities, rather than adding shadcn/ui primitives to this
+  small surface area. Adopt shared shadcn/ui components as the design system
+  grows.
 
 ## Required before production
 
