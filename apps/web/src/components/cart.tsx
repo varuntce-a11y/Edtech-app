@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, GraduationCap, MapPin, Minus, ShieldCheck, ShoppingBag, Trash2 } from 'lucide-react';
-import { API_URL, Course, formatRupees, modeNames } from '@/lib/api';
+import { API_URL, authenticatedFetch, Course, formatRupees, modeNames } from '@/lib/api';
 
 type CartCourse = Course & { batchId?: string };
 export const GST_FACTOR = 118;
@@ -12,19 +12,35 @@ export function Cart() {
   const [items, setItems] = useState<CartCourse[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [cartError, setCartError] = useState('');
+  const [requiresSignIn, setRequiresSignIn] = useState(false);
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('upskillin-cart') ?? '[]') as CartCourse[];
       setItems(stored);
       const token = localStorage.getItem('upskillin-access-token');
       if (token && stored.length) {
-        void Promise.all(stored.map((item) => fetch(`${API_URL}/cart/items`, {
+        void Promise.all(stored.map((item) => authenticatedFetch(`${API_URL}/cart/items`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ courseId: item.id, batchId: item.batchId }),
         }))).then((responses) => {
-          if (responses.some((response) => !response.ok)) setCartError('One or more courses could not sync to your account. Sign in again or review the selected batch.');
-        }).catch(() => setCartError('Your saved cart could not sync to your account. Please try again.'));
+          const failedResponse = responses.find((response) => !response.ok);
+          if (failedResponse) {
+            if (failedResponse.status === 401) {
+              setRequiresSignIn(true);
+              setCartError('Your sign-in has expired. Sign in again to sync your saved cart.');
+              return;
+            }
+            void failedResponse.json().then((body: { message?: string | string[] }) => {
+              const message = Array.isArray(body.message) ? body.message.join(', ') : body.message;
+              setCartError(message
+                ? `A course could not be added to your account: ${message}`
+                : `A course could not be added to your account (HTTP ${failedResponse.status}). Please review its selected batch.`);
+            }).catch(() => setCartError(`A course could not be added to your account (HTTP ${failedResponse.status}). Please review its selected batch.`));
+          }
+        }).catch((cause: unknown) => setCartError(cause instanceof Error
+          ? `Your saved cart could not sync: ${cause.message}`
+          : 'Your saved cart could not sync to your account. Please try again.'));
       }
     } catch {
       setItems([]);
@@ -42,7 +58,7 @@ export function Cart() {
   const tax = Math.round(subtotal * 18 / GST_FACTOR);
   return <main className="subpage"><header className="sub-nav"><Link href="/" className="brand"><span className="brand-icon"><GraduationCap size={20} /></span><span>upskill<span className="brand-in">in</span></span></Link><Link href="/">Keep exploring <ArrowRight size={14} /></Link></header>
     <section className="cart-page"><Link href="/" className="back-link"><ArrowLeft size={14} /> Continue browsing</Link><div className="cart-heading"><div><span className="eyebrow">YOUR NEXT STEP</span><h1>Your learning cart.</h1><p>A good choice is the one that feels right for you.</p></div><span className="cart-item-count">{items.length} {items.length === 1 ? 'course' : 'courses'}</span></div>
-      {cartError && <p className="form-error" role="alert">{cartError}</p>}
+      {cartError && <p className="form-error" role="alert">{cartError}{requiresSignIn && <> <Link href="/login?redirect=%2Fcart">Sign in</Link></>}</p>}
       {!loaded ? <p>Loading your cart…</p> : items.length === 0 ? <div className="empty-cart"><span><ShoppingBag size={22} /></span><h2>Your next skill is waiting.</h2><p>Explore practical courses and add the ones that fit your goals.</p><Link className="solid-link" href="/">Explore courses <ArrowRight size={15} /></Link></div> :
         <div className="cart-layout"><div className="cart-items">{items.map((item) => <article className="cart-item" key={item.id}>
           <div className="cart-art">{item.topic.split(/[ &]/).map((word) => word[0]).join('').slice(0, 2)}</div>

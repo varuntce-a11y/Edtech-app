@@ -1,5 +1,47 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api';
 
+let tokenRefreshInFlight: Promise<string | null> | null = null;
+
+async function refreshAccessToken() {
+  if (!tokenRefreshInFlight) {
+    tokenRefreshInFlight = (async () => {
+      const refreshToken = localStorage.getItem('upskillin-refresh-token');
+      if (!refreshToken) return null;
+
+      const response = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      const refreshed = await response.json() as { accessToken?: string; refreshToken?: string };
+      if (!response.ok || !refreshed.accessToken || !refreshed.refreshToken) {
+        localStorage.removeItem('upskillin-access-token');
+        localStorage.removeItem('upskillin-refresh-token');
+        return null;
+      }
+      localStorage.setItem('upskillin-access-token', refreshed.accessToken);
+      localStorage.setItem('upskillin-refresh-token', refreshed.refreshToken);
+      return refreshed.accessToken;
+    })().finally(() => {
+      tokenRefreshInFlight = null;
+    });
+  }
+  return tokenRefreshInFlight;
+}
+
+export async function authenticatedFetch(url: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  const token = localStorage.getItem('upskillin-access-token');
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  const response = await fetch(url, { ...init, headers });
+  if (response.status !== 401) return response;
+
+  const refreshedToken = await refreshAccessToken();
+  if (!refreshedToken) return response;
+  headers.set('Authorization', `Bearer ${refreshedToken}`);
+  return fetch(url, { ...init, headers });
+}
+
 export type Course = {
   id: string;
   slug: string;

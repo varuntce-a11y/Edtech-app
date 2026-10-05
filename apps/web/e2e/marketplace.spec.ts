@@ -22,6 +22,9 @@ test('signup, browse a course, and complete a local test purchase', async ({ pag
   await page.getByRole('button', { name: /Add Excel Mastery for Business Analysts to cart/ }).click();
   await page.goto('/cart');
   await expect(page.getByRole('heading', { name: 'Your learning cart.' })).toBeVisible();
+  await page.evaluate(() => localStorage.setItem('upskillin-access-token', 'expired-access-token'));
+  await page.reload();
+  await expect(page.locator('.form-error')).toHaveCount(0);
   await page.getByRole('link', { name: 'Continue to checkout' }).click();
   await page.getByLabel('Billing address').fill('12 MG Road, Bengaluru, Karnataka 560001');
   await page.getByLabel(/I agree to the refund policy/).check();
