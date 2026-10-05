@@ -41,12 +41,14 @@ export function LoginForm() {
             ...contact,
             mode,
             code,
-            name: name || undefined,
-            targetRole: targetRole || undefined,
-            educationLevel: educationLevel || undefined,
-            experienceYears: experienceYears ? Number(experienceYears) : undefined,
-            preferredLanguage: language,
-            consent,
+            ...(mode === 'register' ? {
+              name: name || undefined,
+              targetRole: targetRole || undefined,
+              educationLevel: educationLevel || undefined,
+              experienceYears: experienceYears ? Number(experienceYears) : undefined,
+              preferredLanguage: language,
+              consent,
+            } : {}),
           }
           : { ...contact, mode }),
       });
@@ -86,12 +88,12 @@ export function LoginForm() {
         {user && error && <div className="form-error" role="alert">{error}<Link className="login-cart-link" href="/cart">Review your saved cart <ArrowRight size={13} /></Link></div>}
         {!user && <form onSubmit={submit}>
           {!otpSent && <div className="auth-mode-switch" aria-label="Account access">
-            <button type="button" aria-pressed={mode === 'login'} className={mode === 'login' ? 'auth-mode-active' : ''} onClick={() => { setMode('login'); setError(''); }}>Sign in</button>
-            <button type="button" aria-pressed={mode === 'register'} className={mode === 'register' ? 'auth-mode-active' : ''} onClick={() => { setMode('register'); setError(''); }}>Register</button>
+            <button type="button" aria-pressed={mode === 'login'} className={mode === 'login' ? 'auth-mode-active' : ''} onClick={() => { setMode('login'); setError(''); window.history.replaceState(null, '', `${window.location.pathname}${window.location.search.replace(/([?&])mode=signup(&|$)/, '$1').replace(/[?&]$/, '')}`); }}>Sign in</button>
+            <button type="button" aria-pressed={mode === 'register'} className={mode === 'register' ? 'auth-mode-active' : ''} onClick={() => { setMode('register'); setError(''); const params = new URLSearchParams(window.location.search); params.set('mode', 'signup'); window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`); }}>Register</button>
           </div>}
           {!otpSent && <label>Email or mobile number<input autoComplete="email" value={identity} onChange={(event) => setIdentity(event.target.value)} placeholder="you@example.com or +91 98765 43210" required /></label>}
           {!otpSent && mode === 'register' && <label>Your name<input autoComplete="name" minLength={2} maxLength={80} value={name} onChange={(event) => setName(event.target.value)} placeholder="How should we address you?" required /></label>}
-          {otpSent && <>
+          {otpSent && mode === 'register' && <>
             <label>6-digit verification code<input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter your code" required /></label>
             <label>Education level<select value={educationLevel} onChange={(event) => setEducationLevel(event.target.value)}><option value="">Choose your education level (optional)</option><option>Undergraduate</option><option>Graduate</option><option>Postgraduate</option><option>Diploma</option><option>Other</option></select></label>
             <label>Years of experience<input type="number" min="0" max="60" value={experienceYears} onChange={(event) => setExperienceYears(event.target.value)} placeholder="Optional" /></label>
@@ -101,7 +103,7 @@ export function LoginForm() {
           </>}
           {error && <div className="form-error" role="alert">{error}</div>}
           {developmentCode && <div className="dev-code">Local development code: <strong>{developmentCode}</strong></div>}
-          <button className="auth-submit" disabled={busy || (otpSent && !consent)}>{busy ? 'Please wait…' : otpSent ? mode === 'register' ? 'Create account' : 'Sign in securely' : mode === 'register' ? 'Continue registration' : 'Continue with email or phone'} <ArrowRight size={16} /></button>
+          <button className="auth-submit" disabled={busy || (otpSent && mode === 'register' && !consent)}>{busy ? 'Please wait…' : otpSent ? mode === 'register' ? 'Create account' : 'Sign in securely' : mode === 'register' ? 'Continue registration' : 'Continue with email or phone'} <ArrowRight size={16} /></button>
           {otpSent && <button type="button" className="resend-code" onClick={() => { setOtpSent(false); setDevelopmentCode(''); setCode(''); }}>Use a different email or number</button>}
         </form>}
         {!user && !otpSent && <div className="auth-legal">By continuing, you agree to our <Link href="/terms">Terms</Link> and <Link href="/privacy">Privacy Policy</Link>.</div>}

@@ -12,7 +12,7 @@ type VerifyRequest = OtpRequest & {
   targetRole?: string;
   educationLevel?: string;
   experienceYears?: number;
-  consent: boolean;
+  consent?: boolean;
 };
 type ProfileUpdate = {
   name?: string;
@@ -81,51 +81,37 @@ export class AuthService {
       throw new UnauthorizedException('The code is invalid or expired');
     }
     this.records.delete(identity);
-    if (!input.consent) throw new UnauthorizedException('Consent is required to create an account');
     if (!process.env.JWT_REFRESH_SECRET) throw new ServiceUnavailableException('Refresh token signing is not configured');
     const existingUser = await this.findUser(input);
     if (record.mode === 'register') {
       if (existingUser) throw new ConflictException('An account already exists. Choose sign in instead.');
       if (!input.name?.trim()) throw new BadRequestException('Your name is required to register');
+      if (!input.consent) throw new UnauthorizedException('Consent is required to create an account');
     } else if (!existingUser) {
       throw new NotFoundException('No account was found. Choose register to create one.');
     }
 
-    const profileData = {
-      preferredLanguage: input.preferredLanguage ?? 'en',
-      targetRole: input.targetRole,
-      educationLevel: input.educationLevel,
-      experienceYears: input.experienceYears,
-    };
     const user = record.mode === 'register'
       ? await this.prisma.user.create({
         data: {
           email: input.email?.trim().toLowerCase(),
           phone: input.phone?.trim(),
           name: input.name!.trim(),
-          profile: { create: profileData },
-        },
-        include: { profile: true },
-      })
-      : await this.prisma.user.update({
-        where: { id: existingUser!.id },
-        data: {
-          ...(input.name?.trim() ? { name: input.name.trim() } : {}),
           profile: {
-            upsert: {
-              create: profileData,
-              update: {
-                ...(input.preferredLanguage ? { preferredLanguage: input.preferredLanguage } : {}),
-                ...(input.targetRole ? { targetRole: input.targetRole } : {}),
-                ...(input.educationLevel ? { educationLevel: input.educationLevel } : {}),
-                ...(input.experienceYears !== undefined ? { experienceYears: input.experienceYears } : {}),
-              },
+            create: {
+              preferredLanguage: input.preferredLanguage ?? 'en',
+              targetRole: input.targetRole,
+              educationLevel: input.educationLevel,
+              experienceYears: input.experienceYears,
             },
           },
         },
         include: { profile: true },
-      });
-    await this.prisma.consent.create({ data: { userId: user.id, purpose: 'DPDP_ACT_LEARNING_SERVICES', granted: true } });
+      })
+      : existingUser!;
+    if (record.mode === 'register') {
+      await this.prisma.consent.create({ data: { userId: user.id, purpose: 'DPDP_ACT_LEARNING_SERVICES', granted: true } });
+    }
     return { user, ...await this.issueTokens(user.id) };
   }
 

@@ -34,8 +34,9 @@ class VerifyOtpDto extends RequestOtpDto {
   @IsString()
   preferredLanguage?: string;
 
+  @IsOptional()
   @IsBoolean()
-  consent!: boolean;
+  consent?: boolean;
 
   @IsOptional()
   @IsString()
