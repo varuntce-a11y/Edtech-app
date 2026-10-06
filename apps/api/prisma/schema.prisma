@@ -222,6 +222,7 @@ model Order {
   idempotencyKey String
   billingName    String
   billingAddress String
+  deliveryAddress String @default("")
   gstin          String?
   user           User        @relation(fields: [userId], references: [id])
   coupon         Coupon?     @relation(fields: [couponId], references: [id])

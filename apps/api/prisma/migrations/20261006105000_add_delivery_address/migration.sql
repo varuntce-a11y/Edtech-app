@@ -1,0 +1,2 @@
+ALTER TABLE "Order"
+ADD COLUMN "deliveryAddress" TEXT NOT NULL DEFAULT '';

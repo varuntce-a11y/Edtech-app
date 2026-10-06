@@ -24,6 +24,11 @@ class CreateOrderDto {
   @MaxLength(300)
   billingAddress!: string;
 
+  @IsString()
+  @MinLength(8)
+  @MaxLength(300)
+  deliveryAddress!: string;
+
   @IsOptional()
   @Matches(/^[0-9A-Z]{15}$/)
   gstin?: string;

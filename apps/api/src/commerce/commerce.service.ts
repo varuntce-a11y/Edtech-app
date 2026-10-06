@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../prisma.service';
 import { calculateTaxInclusiveGST } from './tax';
 
-type CreateOrder = { billingName: string; billingAddress: string; gstin?: string; couponCode?: string };
+type CreateOrder = { billingName: string; billingAddress: string; deliveryAddress: string; gstin?: string; couponCode?: string };
 
 @Injectable()
 export class CommerceService {
@@ -38,12 +39,30 @@ export class CommerceService {
       create: { userId },
       update: {},
     });
-    return this.prisma.cartItem.upsert({
-      where: { cartId_courseId: { cartId: cart.id, courseId: course.id } },
-      create: { cartId: cart.id, courseId: course.id, batchId: item.batchId },
-      update: { batchId: item.batchId },
-      include: { course: true },
-    });
+    const where = { cartId_courseId: { cartId: cart.id, courseId: course.id } };
+    try {
+      return await this.prisma.cartItem.upsert({
+        where,
+        create: { cartId: cart.id, courseId: course.id, batchId: item.batchId },
+        update: { batchId: item.batchId },
+        include: { course: true },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError
+        && error.code === 'P2002'
+        && Array.isArray(error.meta?.target)
+        && error.meta.target.includes('cartId')
+        && error.meta.target.includes('courseId')
+      ) {
+        return this.prisma.cartItem.update({
+          where,
+          data: { batchId: item.batchId },
+          include: { course: true },
+        });
+      }
+      throw error;
+    }
   }
 
   async removeCartItem(userId: string, courseId: string) {
@@ -87,6 +106,7 @@ export class CommerceService {
           idempotencyKey,
           billingName: input.billingName,
           billingAddress: input.billingAddress,
+          deliveryAddress: input.deliveryAddress,
           gstin: input.gstin,
           couponId: coupon?.id,
           subtotalPaise,
