@@ -50,10 +50,13 @@ test('signup, browse a course, and complete a local test purchase', async ({ pag
   await page.reload();
   await expect(page.locator('.form-error')).toHaveCount(0);
   await page.getByRole('link', { name: 'Continue to checkout' }).click();
-  await page.getByLabel('Billing address').fill('12 MG Road, Bengaluru, Karnataka 560001');
+  await page.getByRole('textbox', { name: 'Billing address' }).fill('12 MG Road, Bengaluru, Karnataka 560001');
   await page.getByLabel(/I agree to the refund policy/).check();
+  await page.getByRole('button', { name: 'Continue to payment' }).click();
+  await expect(page.getByRole('heading', { name: 'Choose how to pay.' })).toBeVisible();
+  await expect(page.getByRole('radiogroup', { name: 'Payment method' }).getByRole('radio')).toHaveCount(4);
   await page.getByRole('button', { name: /Pay .* securely/ }).click();
-  await expect(page.getByRole('heading', { name: 'One step closer.' })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('heading', { name: 'Your order is confirmed.' })).toBeVisible({ timeout: 10_000 });
   await page.evaluate(() => localStorage.setItem('upskillin-access-token', 'expired-access-token'));
   await page.getByRole('link', { name: 'Go to My Courses' }).click();
   await expect(page.getByRole('heading', { name: 'Excel Mastery for Business Analysts' })).toBeVisible();
